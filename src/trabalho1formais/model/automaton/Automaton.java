@@ -8,9 +8,11 @@ package trabalho1formais.model.automaton;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.swing.table.DefaultTableModel;
 import model.Regular;
+import trabalho1formais.model.grammar.Grammar;
 
 /**
  *
@@ -649,25 +651,48 @@ public class Automaton extends Regular {
     	
     	ArrayList<State> new_states = new ArrayList();
     	new_states.add(iniState);
-    	new_states.addAll(a.getStates());
-    	new_states.addAll(b.getStates());
     	
-        
-        Transitions new_transitions = new Transitions();
-        new_transitions.addTransitions(a.getTransitions());
+    	// Novo alfabeto
+    	ArrayList<Character> new_alphabet = new ArrayList();
+    	for(char c : a.getAlphabet()){
+			if(!new_alphabet.contains(c))
+				new_alphabet.add(c);
+		}
+		for(char c : b.getAlphabet()){
+			if(!new_alphabet.contains(c))
+				new_alphabet.add(c);
+		}
+    	
+		//União dos estados
+		for(State s : a.getStates()){
+			new_states.add(s);
+		}
+		for(State s : b.getStates()){
+			new_states.add(s);
+		}
+    	
+        //União transições
+        Transitions new_transitions = a.getTransitions();
         new_transitions.addTransitions(b.getTransitions());
         new_transitions.addTransition(iniState, epilsonSimbol, a.getInitialState());
         new_transitions.addTransition(iniState, epilsonSimbol, b.getInitialState());
         
         
-        
+        //Uniao estados finais
         ArrayList<State> fStates = new ArrayList();
-        fStates.addAll(a.getFinalStates());
-        fStates.addAll(b.getFinalStates());
+        for(State s : a.getFinalStates()){
+			if(!new_states.contains(s))
+				new_states.add(s);
+		}
+		for(State s : b.getFinalStates()){
+			if(!new_states.contains(s))
+				new_states.add(s);
+		}
+
         String new_id = a.getId()+'U'+b.getId();
 
     	
-        Automaton at =  new Automaton(new_states, a.getAlphabet(),new_transitions, iniState, fStates,new_id,"AFND");
+        Automaton at =  new Automaton(new_states, new_alphabet,new_transitions, iniState, fStates,new_id,"AFND");
     	return at;
     }
     
@@ -736,4 +761,61 @@ public class Automaton extends Regular {
 		return comp;
 	}
 
+    public static Grammar convertToGrammar(Automaton afd) {
+        String grammar = "";
+        HashMap<String, String> rename = new HashMap<String, String>();
+        for (State s : afd.getStates()) {
+            String temp = "";
+            String sName = s.getName().toUpperCase();
+            if (!rename.containsKey(sName)) {
+                rename.put(sName, clearName(sName, rename));
+            }
+            temp += rename.get(sName) + "->";
+
+            HashMap<Character, ArrayList<State>> transition = afd.getTransitions().getTransition(s);
+            for (Entry<Character, ArrayList<State>> entry : transition.entrySet()) {
+                Character alpha = entry.getKey();
+                ArrayList<State> states = entry.getValue();
+                if (states.isEmpty()) {
+                    continue;
+                }
+                State state = states.get(0);
+                String stName = state.getName().toUpperCase();
+                if (!rename.containsKey(stName)) {
+                    rename.put(stName, clearName(stName, rename));
+                }
+                temp += alpha + rename.get(stName) + "|";
+
+                for (State sta : afd.getFinalStates()) {
+                    if (sta.getName().toUpperCase().equals(state.getName().toUpperCase())) {
+                        temp += alpha + "|";
+                    }
+                }
+
+            }
+            temp = temp.substring(0, temp.length() - 1) + " ";
+            int a = 1;
+
+            if (!s.equals(afd.getInitialState())) {
+                grammar += temp;
+            } else {
+                grammar = temp + grammar;
+            }
+        }
+        Grammar newgrammar = Grammar.parseGrammarInput(afd.getId()+"#GR", grammar);
+        return newgrammar;
+    }
+
+    private static String clearName(String sName, HashMap<String, String> rename) {
+        sName = sName.replace("[", "").replace("]", "");
+        if (!rename.containsValue("" + sName.toCharArray()[0])) {
+            return "" + sName.toCharArray()[0];
+        }
+        int k = 0;
+        while (rename.containsValue(("" + sName.toCharArray()[0]) + k)) {
+            k++;
+        }
+
+        return ("" + sName.toCharArray()[0]) + k;
+    }
 }
